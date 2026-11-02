@@ -1,10 +1,12 @@
 import React from 'react';
-import { Volume2, Sparkles, Terminal, Keyboard, History, HelpCircle } from 'lucide-react';
+import { Volume2, Sparkles, Terminal, Keyboard, History, HelpCircle, Key, Settings } from 'lucide-react';
 
 interface DesktopHeaderProps {
   onToggleHistory: () => void;
   historyCount: number;
   onOpenKeyboardGuide: () => void;
+  onOpenSettings: () => void;
+  hasApiKey: boolean;
   statusText?: string;
   isGenerating?: boolean;
 }
@@ -13,6 +15,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onToggleHistory,
   historyCount,
   onOpenKeyboardGuide,
+  onOpenSettings,
+  hasApiKey,
   statusText = 'Ready',
   isGenerating = false,
 }) => {
@@ -51,6 +55,23 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
 
       {/* Right Action Buttons */}
       <div className="flex items-center space-x-2 text-xs">
+        {/* API Key / Settings Button */}
+        <button
+          onClick={onOpenSettings}
+          className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all border ${
+            hasApiKey
+              ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-700/60'
+              : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30 animate-pulse'
+          }`}
+          title="Configure Gemini API Key"
+        >
+          <span className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+          <Key className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline font-medium">
+            {hasApiKey ? 'API Ready' : 'Set API Key'}
+          </span>
+        </button>
+
         <button
           onClick={onOpenKeyboardGuide}
           className="flex items-center space-x-1 px-2.5 py-1.5 rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-transparent hover:border-slate-700"

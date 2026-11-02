@@ -5,6 +5,7 @@ import { SinhalaKeypad } from './components/SinhalaKeypad';
 import { HistoryPanel } from './components/HistoryPanel';
 import { PresetSelector } from './components/PresetSelector';
 import { KeyboardGuideModal } from './components/KeyboardGuideModal';
+import { SettingsModal } from './components/SettingsModal';
 import { VOICES, STYLE_PRESETS, SAMPLE_TEXTS } from './data/presets';
 import { GeneratedClip, SinhalaSample } from './types';
 import { fastSinglishToSinhala } from './utils/sinhalaPhonetics';
@@ -23,6 +24,7 @@ import {
   CheckCircle2,
   Radio,
   User,
+  Key,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'sinhala_voice_studio_history_v1';
@@ -58,9 +60,49 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPresetOpen, setIsPresetOpen] = useState(false);
   const [isKeyboardGuideOpen, setIsKeyboardGuideOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [hasEnvKey, setHasEnvKey] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Sync API Key from localStorage & Server
+  useEffect(() => {
+    try {
+      const storedKey = localStorage.getItem('sinhala_voice_studio_api_key');
+      if (storedKey) {
+        setApiKey(storedKey);
+      }
+    } catch {}
+
+    fetch('/api/settings/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.hasApiKey) {
+          setHasEnvKey(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveApiKey = async (newKey: string) => {
+    setApiKey(newKey);
+    try {
+      localStorage.setItem('sinhala_voice_studio_api_key', newKey);
+    } catch {}
+
+    try {
+      await fetch('/api/settings/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: newKey }),
+      });
+      setHasEnvKey(!!newKey);
+    } catch (e) {
+      console.error('Failed to sync API key with server', e);
+    }
+  };
 
   // Load history from localStorage
   useEffect(() => {
@@ -121,7 +163,10 @@ export default function App() {
     try {
       const res = await fetch('/api/tts/singlish-to-sinhala', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-gemini-api-key': apiKey } : {}),
+        },
         body: JSON.stringify({ text: singlishText }),
       });
 
@@ -154,6 +199,12 @@ export default function App() {
       return;
     }
 
+    if (!apiKey && !hasEnvKey) {
+      setIsSettingsOpen(true);
+      setErrorMessage('Please enter your Gemini API key to enable speech generation.');
+      return;
+    }
+
     setIsGenerating(true);
     setErrorMessage(null);
 
@@ -166,7 +217,10 @@ export default function App() {
 
       const res = await fetch('/api/tts/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-gemini-api-key': apiKey } : {}),
+        },
         body: JSON.stringify({
           text: textToSpeak,
           voiceName: selectedVoice,
@@ -265,6 +319,8 @@ export default function App() {
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
         historyCount={historyClips.length}
         onOpenKeyboardGuide={() => setIsKeyboardGuideOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        hasApiKey={!!apiKey || hasEnvKey}
         statusText="Gemini 3.8 Flash Lite TTS (24kHz WAV)"
         isGenerating={isGenerating}
       />
@@ -449,12 +505,24 @@ export default function App() {
 
           {/* Error Banner */}
           {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2.5">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium">Synthesis Notice</p>
-                <p className="text-[11px] text-rose-300/80 mt-0.5">{errorMessage}</p>
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between gap-3">
+              <div className="flex items-start space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium">Synthesis Notice</p>
+                  <p className="text-[11px] text-rose-300/80 mt-0.5">{errorMessage}</p>
+                </div>
               </div>
+              {errorMessage.toLowerCase().includes('api key') && (
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs shrink-0 flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Configure Key</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -646,6 +714,15 @@ export default function App() {
       <KeyboardGuideModal
         isOpen={isKeyboardGuideOpen}
         onClose={() => setIsKeyboardGuideOpen(false)}
+      />
+
+      {/* Gemini API Key Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        apiKey={apiKey}
+        onSaveApiKey={handleSaveApiKey}
+        hasEnvKey={hasEnvKey}
       />
     </div>
   );
