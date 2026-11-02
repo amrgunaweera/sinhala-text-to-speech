@@ -1,0 +1,6 @@
+{
+  "name": "SinhalaVoice Studio - Sinhala Text-to-Speech",
+  "description": "Desktop-grade Sinhala text-to-speech audio generator powered by Gemini AI with custom voices, Singlish typing, and audio export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
